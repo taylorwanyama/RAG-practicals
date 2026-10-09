@@ -45,7 +45,7 @@ async def test_ask_returns_200():
         assert response.status_code == 200
 
         assert response.json() == {
-            "Answer": mock_answer
+            "Answer": mock_answer,
         }
 
         mock_rag.assert_awaited_once_with(
