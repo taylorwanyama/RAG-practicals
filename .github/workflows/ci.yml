@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -44,16 +44,22 @@ jobs:
       - name: Build Docker image
         run: docker build -t rag-api:${{ github.sha }} .
 
-      - name: Start Docker container 
+      - name: Create CI environment file
         run: |
-          docker run -d
-          \ --name rag-api-smoke 
-          \ -p 8000:8000 
-          \ -e GROQ_API_KEY 
-          \ -e PINECONE_API_KEY 
-          \ -e PINECONE_INDEX 
-          \ -e API_KEY 
-          \ rag-api:${{ github.sha }} 
+          cat > .env.ci <<'EOF'
+          GROQ_API_KEY=test-groq-api-key
+          PINECONE_API_KEY=test-pinecone-api-key
+          PINECONE_INDEX=test-index
+          API_KEY=test-api-key
+          EOF
+
+      - name: Start Docker container
+        run: |
+          docker run -d \
+            --name rag-api-smoke \
+            -p 8000:8000 \
+            --env-file .env.ci \
+            rag-api:${{ github.sha }} 
 
       - name: Smoke test liveness endpoint 
         run: | 
