@@ -34,6 +34,7 @@ rate_limiter = RateLimiter(
 async def lifespan(app: FastAPI):
 
     logger.info('Starting application')
+    
 
     embedding_model = SentenceTransformer(
         "all-MiniLM-L6-v2"

@@ -5,15 +5,17 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-env:
-  GROQ_API_KEY: test-groq-api-key
-  PINECONE_API_KEY: test-pinecone-api-key
-  PINECONE_INDEX: test-index
-  API_KEY: test-api-key    
+  
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GROQ_API_KEY: test-groq-api-key
+      PINECONE_API_KEY: test-pinecone-api-key
+      PINECONE_INDEX: test-index
+      API_KEY: test-api-key 
+
 
     steps:
       - name: Checkout repository
@@ -36,7 +38,13 @@ jobs:
   docker-build:
     needs: test
     runs-on: ubuntu-latest
-    
+
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+      API_KEY: ${{ secrets.API_KEY }}
+      PINECONE_INDEX: ${{ vars.PINECONE_INDEX }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -44,39 +52,35 @@ jobs:
       - name: Build Docker image
         run: docker build -t rag-api:${{ github.sha }} .
 
-      - name: Create CI environment file
-        run: |
-          cat > .env.ci <<'EOF'
-          GROQ_API_KEY=test-groq-api-key
-          PINECONE_API_KEY=test-pinecone-api-key
-          PINECONE_INDEX=test-index
-          API_KEY=test-api-key
-          EOF
-
       - name: Start Docker container
         run: |
           docker run -d \
             --name rag-api-smoke \
             -p 8000:8000 \
-            --env-file .env.ci \
-            rag-api:${{ github.sha }} 
+            --env GROQ_API_KEY \
+            --env PINECONE_API_KEY \
+            --env PINECONE_INDEX \
+            --env API_KEY \
+            rag-api:${{ github.sha }}
 
-      - name: Smoke test liveness endpoint 
-        run: | 
-          for attempt in $(seq 1 90); do 
-            if curl --fail --silent \ 
-              http://127.0.0.1:8000/health/live; then 
-              echo "" 
-              echo "Container smoke test passed." 
-              exit 0 
-            fi 
-            echo "Waiting for application startup... ($attempt/90)" 
-            sleep 2 
-          done 
-          echo "Application failed to become healthy." 
-          docker logs rag-api-smoke 
-          exit 1 
+      - name: Smoke test liveness endpoint
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent \
+              http://127.0.0.1:8000/health/live; then
+              echo ""
+              echo "Container smoke test passed."
+              exit 0
+            fi
 
-      - name: Clean up container 
-        if: always() 
-        run: docker rm -f rag-api-smoke || true  
+            echo "Waiting for application startup... ($attempt/90)"
+            sleep 2
+          done
+
+          echo "Application failed to become healthy."
+          docker logs rag-api-smoke
+          exit 1
+
+      - name: Clean up container
+        if: always()
+        run: docker rm -f rag-api-smoke || true
